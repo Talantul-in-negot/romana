@@ -6,7 +6,7 @@
 
   // ---------- stare persistată ----------
   const KEY = 'rom6-v1';
-  const S = Object.assign({ studied: {}, best: {}, known: {}, wrong: {}, theme: '' }, JSON.parse(localStorage.getItem(KEY) || '{}'));
+  const S = Object.assign({ studied: {}, best: {}, known: {}, wrong: {}, notions: {}, theme: '' }, JSON.parse(localStorage.getItem(KEY) || '{}'));
   const save = () => localStorage.setItem(KEY, JSON.stringify(S));
   if (S.theme) document.documentElement.dataset.theme = S.theme;
   document.getElementById('theme').onclick = () => {
@@ -32,6 +32,10 @@
   const findLesson = id => allLessons().find(l => l.id === id);
   const unitOf = id => D.units.find(u => u.unit.id === id);
   const render = (...nodes) => { app.replaceChildren(...nodes.flat().filter(n => n != null && n !== false)); window.scrollTo(0, 0); };
+  // noțiuni înțelese (bifate de elev), cheie = id lecție # poziția în teorie
+  const nKey = (l, i) => l.id + '#' + i;
+  const lessonNotions = l => { const n = (l.theory || []).length; const done = (l.theory || []).filter((_, i) => S.notions[nKey(l, i)]).length; return { total: n, done }; };
+  const unitNotions = u => u.lessons.reduce((a, l) => { const x = lessonNotions(l); a.total += x.total; a.done += x.done; return a; }, { total: 0, done: 0 });
   // acord în număr: 0 noțiuni, 1 noțiune, 2–19 noțiuni, 20+ de noțiuni
   const pl = (n, one, many) => n === 1 ? `1 ${one}` : `${n} ${n >= 20 && (n % 100 === 0 || n % 100 >= 20) ? 'de ' : ''}${many}`;
   const KIND = { definition: 'definiție', rule: 'regulă', classification: 'clasificare', norm: 'normă', tip: 'de reținut', example: 'exemplu' };
@@ -76,9 +80,25 @@
           h('span', { class: 'unit-n' }, 'Unitatea ' + u.unit.number),
           h('h3', { style: 'margin:.5em 0 .2em' }, u.unit.title),
           h('div', { class: 'muted' }, u.unit.summary || ''),
-          h('div', { class: 'muted', style: 'margin-top:8px' }, `${pl(u.lessons.length, 'lecție', 'lecții')} · ${pr.done}/${pr.total} învățate`),
+          h('div', { class: 'muted', style: 'margin-top:8px' }, `${pl(u.lessons.length, 'lecție', 'lecții')} · ${pr.done}/${pr.total} învățate · ${unitNotions(u).done}/${unitNotions(u).total} noțiuni`),
           h('div', { class: 'bar' }, h('i', { style: `width:${pr.pct}%` })));
       })));
+  }
+
+  function coveragePanel(u) {
+    const tot = unitNotions(u);
+    const pct = tot.total ? Math.round(100 * tot.done / tot.total) : 0;
+    const left = u.lessons.map(l => ({ l, items: (l.theory || []).map((t, i) => ({ t, i })).filter(x => !S.notions[nKey(l, x.i)]) })).filter(x => x.items.length);
+    return h('div', { class: 'card', style: 'margin:14px 0' },
+      h('b', {}, `Noțiuni înțelese: ${tot.done} din ${tot.total} (${pct}%)`),
+      h('div', { class: 'bar' }, h('i', { style: `width:${pct}%` })),
+      left.length === 0
+        ? h('p', { style: 'margin:10px 0 0;color:var(--ok);font-weight:600' }, '🎉 Ai acoperit toate noțiunile din această unitate!')
+        : h('details', { style: 'margin-top:10px' },
+          h('summary', { style: 'cursor:pointer;color:var(--brand);font-weight:600' }, `Ce mai ai de învățat (${pl(tot.total - tot.done, 'noțiune', 'noțiuni')})`),
+          left.map(x => h('div', { style: 'margin:10px 0 0' },
+            h('a', { href: `#/l/${x.l.id}/theory`, style: 'font-weight:600' }, `L${x.l.number}. ${x.l.title}`),
+            h('div', { class: 'muted' }, x.items.map(y => y.t.term).join(' · '))))));
   }
 
   function unitPage(id) {
@@ -90,11 +110,12 @@
       h('h1', {}, u.unit.title),
       h('p', { class: 'muted' }, u.unit.summary || ''),
       h('p', {}, h('a', { class: 'btn ghost', href: '#/print/' + u.unit.id }, '🖨 Fișe printabile pentru toată unitatea')),
+      coveragePanel(u),
       sections.map(s => h('section', {},
         h('h2', {}, s.name),
         s.items.map(l => h('a', { class: 'lesson-row', href: '#/l/' + l.id + '/theory' },
           h('span', { class: 'num' }, 'L' + l.number),
-          h('span', { class: 't' }, l.title, h('div', { class: 'muted' }, [l.pages, hasPractice(l) ? pl((l.theory || []).length, 'noțiune', 'noțiuni') : '📖 doar lectură, fără teorie'].filter(Boolean).join(' · '))),
+          h('span', { class: 't' }, l.title, h('div', { class: 'muted' }, [l.pages, hasPractice(l) ? (lessonNotions(l).done ? `${lessonNotions(l).done}/${lessonNotions(l).total} noțiuni înțelese` : pl((l.theory || []).length, 'noțiune', 'noțiuni')) : '📖 doar lectură, fără teorie'].filter(Boolean).join(' · '))),
           S.best[l.id] != null && h('span', { class: 'badge score' }, S.best[l.id] + '%'),
           S.studied[l.id] && h('span', { class: 'badge done' }, '✓ învățat'))))));
   }
@@ -166,14 +187,25 @@
     if (!th.length) { body.append(h('p', { class: 'muted' }, 'Această lecție este dedicată lecturii și nu introduce definiții noi. Poți totuși exersa din fila „Exersează”.')); return; }
     let hide = false;
     const list = h('div');
+    const counter = h('span', { class: 'badge score' });
+    const upd = () => { const x = lessonNotions(l); counter.textContent = `${x.done}/${x.total} noțiuni înțelese`; };
     const draw = () => {
-      list.replaceChildren(...th.map(t => {
+      list.replaceChildren(...th.map((t, i) => {
+        const k = nKey(l, i);
+        const chk = h('button', { class: 'chk' + (S.notions[k] ? ' on' : ''), onclick: e => {
+          e.stopPropagation();
+          S.notions[k] = !S.notions[k]; if (!S.notions[k]) delete S.notions[k];
+          chk.classList.toggle('on', !!S.notions[k]); chk.textContent = S.notions[k] ? '✓ Am înțeles' : 'Am înțeles';
+          const x = lessonNotions(l); if (x.done === x.total) S.studied[l.id] = true;
+          save(); upd();
+        } }, S.notions[k] ? '✓ Am înțeles' : 'Am înțeles');
         const d = h('div', { class: 'def' + (t.important ? ' imp' : '') + (hide ? ' hidden' : '') },
           h('div', { class: 'kind' }, (t.important ? '★ Repere · ' : '') + (KIND[t.kind] || t.kind || '') + (t.derived ? ' · din exercițiile manualului, nu din Repere' : '')),
           h('h3', {}, t.term),
           h('div', { class: 'body' },
             h('p', {}, t.text),
-            (t.examples || []).length > 0 && h('div', { class: 'ex' }, 'Exemple: ' + t.examples.join(' · '))));
+            (t.examples || []).length > 0 && h('div', { class: 'ex' }, 'Exemple: ' + t.examples.join(' · '))),
+          chk);
         d.onclick = () => { if (hide) d.classList.toggle('hidden'); };
         return d;
       }));
@@ -181,7 +213,8 @@
     const tog = h('button', { class: 'btn ghost', onclick: () => { hide = !hide; tog.textContent = hide ? '👁 Arată definițiile' : '🙈 Acoperă definițiile (autotest)'; draw(); } }, '🙈 Acoperă definițiile (autotest)');
     const mark = h('button', { class: 'btn', onclick: () => { S.studied[l.id] = !S.studied[l.id]; save(); mark.textContent = S.studied[l.id] ? '✓ Marcată ca învățată' : 'Marchează ca învățată'; } },
       S.studied[l.id] ? '✓ Marcată ca învățată' : 'Marchează ca învățată');
-    body.append(h('div', { class: 'row' }, tog, mark), list,
+    upd();
+    body.append(h('div', { class: 'row' }, tog, mark, counter), list,
       h('p', { class: 'muted' }, 'Sfat: acoperă definițiile și încearcă să le spui din memorie; apasă pe o carte pentru a o descoperi.'));
     draw();
   }
@@ -359,10 +392,10 @@
         h('div', { class: 'card' }, h('b', {}, `${done}/${ls.length}`), 'lecții învățate'),
         h('div', { class: 'card' }, h('b', {}, avg + '%'), 'scor mediu la exerciții'),
         h('div', { class: 'card' }, h('b', {}, Object.keys(S.known).length), 'flashcarduri știute'),
-        h('div', { class: 'card' }, h('b', {}, terms), 'noțiuni în aplicație'),
+        h('div', { class: 'card' }, h('b', {}, `${D.units.reduce((a, u) => a + unitNotions(u).done, 0)}/${terms}`), 'noțiuni înțelese'),
         h('div', { class: 'card' }, h('b', {}, Object.keys(S.wrong).length), 'întrebări de reluat')),
       h('h2', {}, 'Pe unități'),
-      D.units.map(u => { const p = unitProgress(u); return h('div', { class: 'card', style: 'margin:8px 0' }, h('b', {}, `U${u.unit.number}. ${u.unit.title}`), h('div', { class: 'bar' }, h('i', { style: `width:${p.pct}%` }))); }),
+      D.units.map(u => { const p = unitProgress(u); return h('div', { class: 'card', style: 'margin:8px 0' }, h('b', {}, `U${u.unit.number}. ${u.unit.title}`), h('div', { class: 'muted' }, `${unitNotions(u).done}/${unitNotions(u).total} noțiuni înțelese · ${p.done}/${p.total} lecții învățate`), h('div', { class: 'bar' }, h('i', { style: `width:${unitNotions(u).total ? Math.round(100 * unitNotions(u).done / unitNotions(u).total) : 0}%` }))); }),
       h('div', { class: 'row' }, h('button', { class: 'btn ghost', onclick: () => { if (confirm('Ștergi tot progresul?')) { localStorage.removeItem(KEY); location.reload(); } } }, 'Resetează progresul')));
   }
 

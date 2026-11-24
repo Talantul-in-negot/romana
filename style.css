@@ -81,3 +81,8 @@ input.txt,select{font:inherit;padding:9px 12px;border:1px solid var(--line);bord
   .sheet-def.imp{border-left:3px solid #000}
 }
 .btn{white-space:normal;text-align:center;max-width:100%}
+.chk{margin-top:10px;border:1px solid var(--line);background:var(--card);color:var(--mute);border-radius:99px;padding:5px 14px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.chk:hover{border-color:var(--ok);color:var(--ok)}
+.chk.on{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.def.hidden .chk{visibility:hidden}
+@media print{.chk,.badge{display:none!important}}
