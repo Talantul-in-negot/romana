@@ -94,3 +94,6 @@ input.txt,select{font:inherit;padding:9px 12px;border:1px solid var(--line);bord
 .st-test,.st-decl{background:var(--goldbg);color:var(--gold)}
 
 .st-okn{background:var(--okbg);color:var(--ok)}.st-nt{background:var(--line);color:var(--mute)}
+.topic-lesson{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:10px 0}
+.topic-lesson summary{cursor:pointer;font-weight:600}
+@media print{.topic-lesson{border:none}}

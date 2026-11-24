@@ -71,6 +71,9 @@
       if (p[0] === 'u') return unitPage(p[1]);
       if (p[0] === 'l') return lessonPage(p[1], p[2] || 'theory');
       if (p[0] === 'print') return printUnit(p[1]);
+      if (p[0] === 'topics') return topicsPage();
+      if (p[0] === 'topic') return topicPage(p[1]);
+      if (p[0] === 'print-topic') return printTopic(p[1]);
       if (p[0] === 'glossary') return glossary();
       if (p[0] === 'review') return review();
       if (p[0] === 'stats') return stats();
@@ -94,6 +97,7 @@
       h('p', { class: 'muted' }, `Învață definițiile, apoi exersează. ${done} din ${total} lecții marcate ca învățate.`),
       h('div', { class: 'row' },
         h('a', { class: 'btn', href: '#/review' }, '🎯 Recapitulare mixtă'),
+        h('a', { class: 'btn ghost', href: '#/topics' }, '🧭 Recapitulare pe teme'),
         h('a', { class: 'btn ghost', href: '#/glossary' }, '📖 Glosar de termeni')),
       h('h2', {}, 'Unități de învățare'),
       h('div', { class: 'grid' }, D.units.map(u => {
@@ -208,6 +212,30 @@
       ls.map(l => sheetNode(l, u)));
   }
 
+  // lista de definiții a unei lecții (cu stare și buton de declarare); reutilizată în pagina lecției și în paginile de teme
+  function renderDefs(l, container, hide, onChange) {
+    const redraw = () => renderDefs(l, container, hide, onChange);
+    container.replaceChildren(...(l.theory || []).map((t, i) => {
+      const k = nKey(l, i);
+      const st = notionState(l, i);
+      const chk = h('button', { class: 'chk' + (S.notions[k] ? ' on' : ''), title: 'O noțiune e „înțeleasă" când o declari tu ȘI ai trecut testele ei.', onclick: e => {
+        e.stopPropagation();
+        S.notions[k] = !S.notions[k]; if (!S.notions[k]) delete S.notions[k];
+        const x = lessonNotions(l); if (x.done === x.total) S.studied[l.id] = true;
+        save(); onChange && onChange(); redraw();
+      } }, S.notions[k] ? '✓ Declarată înțeleasă' : 'Declar că am înțeles');
+      const d = h('div', { class: 'def' + (t.important ? ' imp' : '') + (hide ? ' hidden' : '') },
+        h('div', { class: 'kind' }, h('span', { class: 'st st-' + st }, STATE_LABEL[st]), ' ' + (t.important ? '★ Repere · ' : '') + (KIND[t.kind] || t.kind || '') + (t.derived ? ' · din exercițiile manualului, nu din Repere' : '')),
+        h('h3', {}, t.term),
+        h('div', { class: 'body' },
+          h('p', {}, t.text),
+          (t.examples || []).length > 0 && h('div', { class: 'ex' }, 'Exemple: ' + t.examples.join(' · '))),
+        chk);
+      d.onclick = () => { if (hide) d.classList.toggle('hidden'); };
+      return d;
+    }));
+  }
+
   function theoryTab(l, body) {
     const th = l.theory || [];
     if (!th.length) { body.append(h('p', { class: 'muted' }, 'Această lecție este dedicată lecturii și nu introduce definiții noi. Poți totuși exersa din fila „Exersează”.')); return; }
@@ -215,27 +243,7 @@
     const list = h('div');
     const counter = h('span', { class: 'badge score' });
     const upd = () => { const x = lessonNotions(l); counter.textContent = `${x.done}/${x.total} noțiuni înțelese`; };
-    const draw = () => {
-      list.replaceChildren(...th.map((t, i) => {
-        const k = nKey(l, i);
-        const st = notionState(l, i);
-        const chk = h('button', { class: 'chk' + (S.notions[k] ? ' on' : ''), title: 'O noțiune e „înțeleasă" când o declari tu ȘI ai trecut testele ei.', onclick: e => {
-          e.stopPropagation();
-          S.notions[k] = !S.notions[k]; if (!S.notions[k]) delete S.notions[k];
-          const x = lessonNotions(l); if (x.done === x.total) S.studied[l.id] = true;
-          save(); upd(); draw();
-        } }, S.notions[k] ? '✓ Declarată înțeleasă' : 'Declar că am înțeles');
-        const d = h('div', { class: 'def' + (t.important ? ' imp' : '') + (hide ? ' hidden' : '') },
-          h('div', { class: 'kind' }, h('span', { class: 'st st-' + st }, STATE_LABEL[st]), ' ' + (t.important ? '★ Repere · ' : '') + (KIND[t.kind] || t.kind || '') + (t.derived ? ' · din exercițiile manualului, nu din Repere' : '')),
-          h('h3', {}, t.term),
-          h('div', { class: 'body' },
-            h('p', {}, t.text),
-            (t.examples || []).length > 0 && h('div', { class: 'ex' }, 'Exemple: ' + t.examples.join(' · '))),
-          chk);
-        d.onclick = () => { if (hide) d.classList.toggle('hidden'); };
-        return d;
-      }));
-    };
+    const draw = () => renderDefs(l, list, hide, upd);
     const tog = h('button', { class: 'btn ghost', onclick: () => { hide = !hide; tog.textContent = hide ? '👁 Arată definițiile' : '🙈 Acoperă definițiile (autotest)'; draw(); } }, '🙈 Acoperă definițiile (autotest)');
     const mark = h('button', { class: 'btn', onclick: () => { S.studied[l.id] = !S.studied[l.id]; save(); mark.textContent = S.studied[l.id] ? '✓ Marcată ca învățată' : 'Marchează ca învățată'; } },
       S.studied[l.id] ? '✓ Marcată ca învățată' : 'Marchează ca învățată');
@@ -248,15 +256,20 @@
   function cardsTab(l, body) {
     const cards = l.flashcards && l.flashcards.length ? l.flashcards : (l.theory || []).map(t => ({ front: t.term, back: t.text }));
     if (!cards.length) { body.append(h('p', { class: 'muted' }, 'Nu există flashcarduri pentru această lecție.')); return; }
+    cardsPlayer(cards.map((c, i) => ({ key: l.id + '#' + i, front: c.front, back: c.back })), body);
+  }
+
+  // player de flashcarduri pe o listă oarecare: [{key, front, back}]
+  function cardsPlayer(cards, body) {
     let order = shuffle(cards.map((_, i) => i)), pos = 0;
-    const kk = i => l.id + '#' + i;
+    const kk = i => cards[i].key;
     const area = h('div');
     const draw = () => {
       if (pos >= order.length) {
         const kn = cards.filter((_, i) => S.known[kk(i)]).length;
         area.replaceChildren(h('div', { class: 'card' }, h('div', { class: 'big' }, `${kn}/${cards.length}`), h('p', {}, 'carduri marcate „Știu" (declarație, nu dovadă)'),
           h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => { order = shuffle(cards.map((_, i) => i)); pos = 0; draw(); } }, 'Reia toate'),
-            h('button', { class: 'btn ghost', onclick: () => { order = cards.map((_, i) => i).filter(i => !S.known[kk(i)]); pos = 0; if (!order.length) order = cards.map((_, i) => i); draw(); } }, 'Doar cele nesigure'))));
+            h('button', { class: 'btn ghost', onclick: () => { order = shuffle(cards.map((_, i) => i).filter(i => !S.known[kk(i)])); pos = 0; if (!order.length) order = shuffle(cards.map((_, i) => i)); draw(); } }, 'Doar cele nesigure'))));
         return;
       }
       const i = order[pos], c = cards[i];
@@ -389,6 +402,93 @@
       finish(ok, ok ? '' : q.items.map(it => it.t + ' → ' + q.categories[it.c]).join('; '));
     } }, 'Verifică');
     holder.append(btn);
+  }
+
+  // ---------- recapitulare pe teme ----------
+  const themeList = () => (window.THEMES || []).map(t => Object.assign({}, t, { ls: t.lessons.map(findLesson).filter(Boolean) }));
+  function themeStats(t) {
+    const c = { total: 0, ok: 0, weak: 0, wait: 0, new: 0, q: 0, cards: 0 };
+    t.ls.forEach(l => {
+      c.q += (l.quiz || []).length; c.cards += (l.flashcards || []).length;
+      (l.theory || []).forEach((_, i) => {
+        c.total++; const s = notionState(l, i);
+        if (isDone(s)) c.ok++; else if (s === 'weak') c.weak++; else if (s === 'new' || s === 'nt') c.new++; else c.wait++;
+      });
+    });
+    c.pct = c.total ? Math.round(100 * c.ok / c.total) : 0;
+    return c;
+  }
+  function themeQuestions(t, onlyUnproven) {
+    const out = [];
+    t.ls.forEach(l => (l.quiz || []).forEach((q, qi) => {
+      if (onlyUnproven && !(q.n || []).some(i => !isDone(notionState(l, i)))) return;
+      out.push(Object.assign({ key: l.id + '#' + qi, lessonId: l.id }, q));
+    }));
+    return out;
+  }
+
+  function topicsPage() {
+    render(h('h1', {}, 'Recapitulare pe teme'),
+      h('p', { class: 'muted' }, 'Alege o temă și recapitulezi, într-un singur loc, lecțiile care o tratează din toate unitățile: teorie, flashcarduri și exerciții.'),
+      h('div', { class: 'grid' }, themeList().map(t => {
+        const c = themeStats(t);
+        return h('a', { class: 'card', href: '#/topic/' + t.id },
+          h('div', { style: 'font-size:28px' }, t.icon),
+          h('h3', { style: 'margin:.2em 0' }, t.title),
+          h('div', { class: 'muted' }, t.blurb),
+          h('div', { class: 'muted', style: 'margin-top:8px' }, `${pl(t.ls.length, 'lecție', 'lecții')} · ${c.ok}/${c.total} noțiuni înțelese${c.weak ? ' · ⚠ ' + c.weak + ' de repetat' : ''}`),
+          h('div', { class: 'bar' }, h('i', { style: `width:${c.pct}%` })));
+      })));
+  }
+
+  function topicPage(id) {
+    const t = themeList().find(x => x.id === id); if (!t) return topicsPage();
+    const stats = h('div', { class: 'card', style: 'margin:14px 0' });
+    const practice = h('div');
+    const btns = h('div', { class: 'row' });
+    const drawStats = () => {
+      const c = themeStats(t), all = themeQuestions(t), unp = themeQuestions(t, true);
+      stats.replaceChildren(
+        h('b', {}, `Noțiuni înțelese: ${c.ok} din ${c.total} (${c.pct}%)`),
+        h('div', { class: 'bar' }, h('i', { style: `width:${c.pct}%` })),
+        h('div', { class: 'muted', style: 'margin-top:8px' },
+          `✓ ${c.ok} înțelese · ⚠ ${c.weak} de repetat · ◐ ${c.wait} în curs / în așteptarea declarației · ○ ${c.new} neexersate`));
+      const go = items => { practice.replaceChildren(); runQuiz(practice, shuffle(items).slice(0, items.length), null); practice.scrollIntoView({ behavior: 'smooth' }); };
+      btns.replaceChildren(
+        h('button', { class: 'btn', disabled: !all.length, onclick: () => go(shuffle(all).slice(0, 15)) }, '🎲 15 întrebări'),
+        h('button', { class: 'btn ghost', disabled: !all.length, onclick: () => go(all) }, `📝 Toate întrebările (${all.length})`),
+        h('button', { class: 'btn ghost', disabled: !unp.length, onclick: () => go(unp) }, `🎯 Ce n-am dovedit încă (${unp.length})`),
+        h('button', { class: 'btn ghost', disabled: !c.cards, onclick: () => { practice.replaceChildren(); cardsPlayer(t.ls.flatMap(l => (l.flashcards || []).map((f, i) => ({ key: l.id + '#' + i, front: f.front, back: f.back }))), practice); } }, `🃏 Flashcarduri (${c.cards})`),
+        h('a', { class: 'btn ghost', href: '#/print-topic/' + t.id }, '🖨 Fișe'));
+    };
+    const defs = t.ls.filter(l => (l.theory || []).length).map(l => {
+      const box = h('div');
+      renderDefs(l, box, false, drawStats);
+      return h('details', { class: 'topic-lesson', open: t.ls.length <= 3 ? '' : null },
+        h('summary', {}, `${unitOf(l.unitId).unit.number}.L${l.number} · ${l.title} `, h('span', { class: 'muted' }, pl(l.theory.length, 'noțiune', 'noțiuni'))),
+        box, h('a', { href: `#/l/${l.id}/theory` }, 'Deschide lecția →'));
+    });
+    render(h('div', { class: 'crumbs' }, h('a', { href: '#/topics' }, 'Teme'), ' › ' + t.title),
+      h('h1', {}, `${t.icon} ${t.title}`), h('p', { class: 'muted' }, t.blurb),
+      stats, btns, practice,
+      h('h2', {}, 'Lecțiile temei'),
+      h('div', {}, t.ls.map(l => h('a', { class: 'lesson-row', href: `#/l/${l.id}/theory` },
+        h('span', { class: 'num' }, `U${unitOf(l.unitId).unit.number}·L${l.number}`),
+        h('span', { class: 't' }, l.title, h('div', { class: 'muted' }, [l.pages, hasPractice(l) ? pl((l.theory || []).length, 'noțiune', 'noțiuni') : '📖 doar lectură'].filter(Boolean).join(' · ')))))),
+      h('h2', {}, 'Teoria temei'),
+      defs);
+    drawStats();
+  }
+
+  function printTopic(id) {
+    const t = themeList().find(x => x.id === id); if (!t) return topicsPage();
+    const ls = t.ls.filter(l => (l.theory || []).length);
+    render(h('div', { class: 'noprint' },
+      h('div', { class: 'crumbs' }, h('a', { href: '#/topic/' + id }, '← ' + t.title)),
+      h('h1', {}, 'Fișe printabile · ' + t.title),
+      h('p', { class: 'muted' }, `${pl(ls.length, 'fișă', 'fișe')}, câte una pe pagină.`),
+      h('button', { class: 'btn', onclick: () => window.print() }, '🖨 Tipărește fișele temei')),
+      ls.map(l => sheetNode(l, unitOf(l.unitId))));
   }
 
   // ---------- glosar ----------
