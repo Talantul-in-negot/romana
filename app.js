@@ -34,29 +34,29 @@
   const render = (...nodes) => { app.replaceChildren(...nodes.flat().filter(n => n != null && n !== false)); window.scrollTo(0, 0); };
   // noțiuni înțelese (bifate de elev), cheie = id lecție # poziția în teorie
   const nKey = (l, i) => l.id + '#' + i;
-  // Starea unei noțiuni, dedusă din exerciții:
-  //  ok   = bifată manual SAU toate întrebările legate de ea au ultimul răspuns corect (sau, fără întrebări, un card legat marcat „Știu")
+  // Starea unei noțiuni:
+  //  ok   = declarată de elev ȘI toate întrebările legate de ea au ultimul răspuns corect
+  //  okn  = declarată, iar pentru ea nu există nicio întrebare (nu se poate dovedi)
   //  weak = cel puțin o întrebare legată are ultimul răspuns greșit
-  //  part = a început (unele răspunsuri corecte / carduri știute), dar nu e încă sigură
-  //  new  = neexersată
+  //  test / decl / part / new = pași intermediari
   function notionState(l, i) {
     const declared = !!S.notions[nKey(l, i)];
-    const qs = [], cs = [];
+    // Dovada = răspunsuri corecte la întrebările din „Exersează". „Știu" la flashcarduri e doar o declarație și nu contează aici.
+    const qs = [];
     (l.quiz || []).forEach((q, qi) => { if ((q.n || []).includes(i)) qs.push(l.id + '#' + qi); });
-    (l.flashcards || []).forEach((c, ci) => { if ((c.n || []).includes(i)) cs.push(l.id + '#' + ci); });
     if (qs.some(k => S.wrong[k])) return 'weak';
-    const okQ = qs.filter(k => S.ok[k]).length, knownC = cs.filter(k => S.known[k]).length;
-    const hasTests = qs.length + cs.length > 0;
-    const passed = qs.length ? okQ === qs.length : (cs.length > 0 && knownC === cs.length);
-    if (!hasTests) return declared ? 'ok' : 'new';       // fără întrebări/carduri: contează doar declarația
-    if (declared && passed) return 'ok';                  // declarată ȘI testată
+    const okQ = qs.filter(k => S.ok[k]).length;
+    if (!qs.length) return declared ? 'okn' : 'nt';        // nicio întrebare disponibilă: nu se poate dovedi, contează doar declarația
+    const passed = okQ === qs.length;
+    if (declared && passed) return 'ok';                  // declarată ȘI dovedită
     if (passed) return 'test';                            // teste trecute, lipsește declarația
-    if (declared) return 'decl';                          // declarată, dar testele nu sunt trecute
-    return okQ || knownC ? 'part' : 'new';
+    if (declared) return 'decl';                          // declarată, dar nedovedită
+    return okQ ? 'part' : 'new';
   }
-  const STATE_LABEL = { ok: '✓ înțeleasă', weak: '⚠ de repetat', part: '◐ în curs', new: '○ neexersată',
-    test: '◐ teste trecute – confirmă că ai înțeles', decl: '◐ declarată – netestată încă' };
-  const lessonNotions = l => { const n = (l.theory || []).length; const done = (l.theory || []).filter((_, i) => notionState(l, i) === 'ok').length; return { total: n, done }; };
+  const isDone = s => s === 'ok' || s === 'okn';
+  const STATE_LABEL = { ok: '✓ înțeleasă', okn: '✓ declarată (fără test disponibil)', nt: '○ fără test disponibil – declar-o dacă ai înțeles-o', weak: '⚠ de repetat', part: '◐ în curs', new: '○ neexersată',
+    test: '◐ teste trecute – confirmă că ai înțeles', decl: '◐ declarată – nedovedită încă' };
+  const lessonNotions = l => { const n = (l.theory || []).length; const done = (l.theory || []).filter((_, i) => isDone(notionState(l, i))).length; return { total: n, done }; };
   const unitNotions = u => u.lessons.reduce((a, l) => { const x = lessonNotions(l); a.total += x.total; a.done += x.done; return a; }, { total: 0, done: 0 });
   // acord în număr: 0 noțiuni, 1 noțiune, 2–19 noțiuni, 20+ de noțiuni
   const pl = (n, one, many) => n === 1 ? `1 ${one}` : `${n} ${n >= 20 && (n % 100 === 0 || n % 100 >= 20) ? 'de ' : ''}${many}`;
@@ -110,7 +110,7 @@
   function coveragePanel(u) {
     const tot = unitNotions(u);
     const pct = tot.total ? Math.round(100 * tot.done / tot.total) : 0;
-    const left = u.lessons.map(l => ({ l, items: (l.theory || []).map((t, i) => ({ t, i })).map(x => Object.assign(x, { st: notionState(l, x.i) })).filter(x => x.st !== 'ok') })).filter(x => x.items.length);
+    const left = u.lessons.map(l => ({ l, items: (l.theory || []).map((t, i) => ({ t, i })).map(x => Object.assign(x, { st: notionState(l, x.i) })).filter(x => !isDone(x.st)) })).filter(x => x.items.length);
     const weakN = left.reduce((a, x) => a + x.items.filter(y => y.st === 'weak').length, 0);
     const confirmN = left.reduce((a, x) => a + x.items.filter(y => y.st === 'test').length, 0);
     return h('div', { class: 'card', style: 'margin:14px 0' },
@@ -254,7 +254,7 @@
     const draw = () => {
       if (pos >= order.length) {
         const kn = cards.filter((_, i) => S.known[kk(i)]).length;
-        area.replaceChildren(h('div', { class: 'card' }, h('div', { class: 'big' }, `${kn}/${cards.length}`), h('p', {}, 'carduri știute'),
+        area.replaceChildren(h('div', { class: 'card' }, h('div', { class: 'big' }, `${kn}/${cards.length}`), h('p', {}, 'carduri marcate „Știu" (declarație, nu dovadă)'),
           h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => { order = shuffle(cards.map((_, i) => i)); pos = 0; draw(); } }, 'Reia toate'),
             h('button', { class: 'btn ghost', onclick: () => { order = cards.map((_, i) => i).filter(i => !S.known[kk(i)]); pos = 0; if (!order.length) order = cards.map((_, i) => i); draw(); } }, 'Doar cele nesigure'))));
         return;
@@ -264,6 +264,7 @@
       area.replaceChildren(
         h('div', { class: 'prog' }, h('i', { style: `width:${100 * pos / order.length}%` })),
         h('div', { class: 'muted' }, `Card ${pos + 1} din ${order.length} · apasă pe card pentru a vedea răspunsul`), f,
+        h('div', { class: 'muted', style: 'font-size:12px' }, '„Știu" te ajută doar să-ți urmărești cardurile. Înțelegerea unei noțiuni o dovedești din fila „Exersează".'),
         h('div', { class: 'row' },
           h('button', { class: 'btn', onclick: () => { S.known[kk(i)] = true; save(); pos++; draw(); } }, '✓ Știu'),
           h('button', { class: 'btn ghost', onclick: () => { delete S.known[kk(i)]; save(); pos++; draw(); } }, '✗ Mai repet')));
@@ -434,7 +435,7 @@
       h('div', { class: 'stats' },
         h('div', { class: 'card' }, h('b', {}, `${done}/${ls.length}`), 'lecții învățate'),
         h('div', { class: 'card' }, h('b', {}, avg + '%'), 'scor mediu la exerciții'),
-        h('div', { class: 'card' }, h('b', {}, Object.keys(S.known).length), 'flashcarduri știute'),
+        h('div', { class: 'card' }, h('b', {}, Object.keys(S.known).length), 'flashcarduri marcate «Știu»'),
         h('div', { class: 'card' }, h('b', {}, `${D.units.reduce((a, u) => a + unitNotions(u).done, 0)}/${terms}`), 'noțiuni înțelese'),
         h('div', { class: 'card' }, h('b', {}, Object.keys(S.wrong).length), 'întrebări de reluat')),
       h('h2', {}, 'Pe unități'),

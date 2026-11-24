@@ -92,3 +92,5 @@ input.txt,select{font:inherit;padding:9px 12px;border:1px solid var(--line);bord
 @media print{.st{display:none!important}}
 
 .st-test,.st-decl{background:var(--goldbg);color:var(--gold)}
+
+.st-okn{background:var(--okbg);color:var(--ok)}.st-nt{background:var(--line);color:var(--mute)}
