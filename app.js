@@ -496,13 +496,36 @@
     const all = [];
     D.units.forEach(u => u.lessons.forEach(l => (l.theory || []).forEach(t => all.push({ t, l, u }))));
     const list = h('div');
-    const q = h('input', { class: 'search', placeholder: `Caută printre ${pl(all.length, 'noțiune', 'noțiuni')} (termen sau definiție)…`, type: 'search' });
+    const q = h('input', { class: 'search', placeholder: `Caută printre ${pl(all.length, 'noțiune', 'noțiuni')} (termen, definiție, lecție sau temă)…`, type: 'search' });
+    const themes = themeList();
+    const themesOf = l => themes.filter(t => t.lessons.includes(l.id));
+    // „verbul" → „verb", „timpurile" → „timpuril…": taie terminațiile frecvente ca să se găsească și alte forme ale cuvântului
+    const stem = w => { for (const suf of ['ului', 'ilor', 'elor', 'ul', 'le', 'ii', 'ei', 'ea', 'a', 'e', 'i']) if (w.endsWith(suf) && w.length - suf.length >= 4) return w.slice(0, -suf.length); return w; };
     const draw = () => {
-      const s = norm(q.value);
-      const res = all.filter(x => !s || norm(x.t.term).includes(s) || norm(x.t.text).includes(s)).sort((a, b) => a.t.term.localeCompare(b.t.term, 'ro'));
-      list.replaceChildren(h('p', { class: 'muted' }, pl(res.length, 'rezultat', 'rezultate')), ...res.slice(0, 120).map(x =>
+      const toks = norm(q.value).split(' ').filter(Boolean).map(stem);
+      let banner = null, res;
+      if (!toks.length) {
+        res = all.slice().sort((a, b) => a.t.term.localeCompare(b.t.term, 'ro'));
+      } else {
+        // potrivire la început de cuvânt („verb" găsește verbul, verbe, verbale, dar nu și ad-verb)
+        const hasAll = txt => toks.every(k => (' ' + txt).includes(' ' + k));
+        const titleHits = themes.filter(t => hasAll(norm(t.title)));
+        const themeHits = titleHits.length ? titleHits : themes.filter(t => hasAll(norm(t.title + ' ' + t.blurb)));
+        const inTheme = new Set(themeHits.flatMap(t => t.lessons));
+        res = [];
+        all.forEach((x, idx) => {
+          const term = norm(x.t.term), text = norm(x.t.text), lt = norm(x.l.title);
+          const sc = (inTheme.has(x.l.id) ? 4 : 0) + (hasAll(term) ? 3 : 0) + (hasAll(lt) ? 2 : 0) + (hasAll(text) ? 1 : 0);
+          if (sc > 0) res.push({ ...x, sc, idx });
+        });
+        res.sort((a, b) => b.sc - a.sc || a.idx - b.idx);
+        if (themeHits.length) banner = h('div', { class: 'card', style: 'margin:10px 0' },
+          h('b', {}, themeHits.length === 1 ? 'Temă găsită:' : 'Teme găsite:'), ' ',
+          themeHits.map(t => h('a', { href: '#/topic/' + t.id, style: 'margin-right:12px;font-weight:600' }, `${t.icon} ${t.title} (recapitulare) →`)));
+      }
+      list.replaceChildren(...[banner, h('p', { class: 'muted' }, pl(res.length, 'rezultat', 'rezultate') + (res.length > 120 ? ' · se afișează primele 120' : ''))].filter(Boolean), ...res.slice(0, 120).map(x =>
         h('div', { class: 'def' + (x.t.important ? ' imp' : '') },
-          h('div', { class: 'kind' }, `U${x.u.unit.number} · L${x.l.number} · ${x.l.title}`),
+          h('div', { class: 'kind' }, `U${x.u.unit.number} · L${x.l.number} · ${x.l.title}` + (themesOf(x.l).length ? ' · temă: ' + themesOf(x.l).map(t => t.title).join(', ') : '')),
           h('h3', {}, x.t.term), h('p', {}, x.t.text),
           h('a', { href: `#/l/${x.l.id}/theory` }, 'Deschide lecția →'))));
     };
