@@ -6,7 +6,7 @@
 
   // ---------- stare persistată ----------
   const KEY = 'rom6-v1';
-  const S = Object.assign({ studied: {}, best: {}, known: {}, wrong: {}, notions: {}, theme: '' }, JSON.parse(localStorage.getItem(KEY) || '{}'));
+  const S = Object.assign({ studied: {}, best: {}, known: {}, wrong: {}, ok: {}, notions: {}, theme: '' }, JSON.parse(localStorage.getItem(KEY) || '{}'));
   const save = () => localStorage.setItem(KEY, JSON.stringify(S));
   if (S.theme) document.documentElement.dataset.theme = S.theme;
   document.getElementById('theme').onclick = () => {
@@ -34,7 +34,24 @@
   const render = (...nodes) => { app.replaceChildren(...nodes.flat().filter(n => n != null && n !== false)); window.scrollTo(0, 0); };
   // noțiuni înțelese (bifate de elev), cheie = id lecție # poziția în teorie
   const nKey = (l, i) => l.id + '#' + i;
-  const lessonNotions = l => { const n = (l.theory || []).length; const done = (l.theory || []).filter((_, i) => S.notions[nKey(l, i)]).length; return { total: n, done }; };
+  // Starea unei noțiuni, dedusă din exerciții:
+  //  ok   = bifată manual SAU toate întrebările legate de ea au ultimul răspuns corect (sau, fără întrebări, un card legat marcat „Știu")
+  //  weak = cel puțin o întrebare legată are ultimul răspuns greșit
+  //  part = a început (unele răspunsuri corecte / carduri știute), dar nu e încă sigură
+  //  new  = neexersată
+  function notionState(l, i) {
+    if (S.notions[nKey(l, i)]) return 'ok';
+    const qs = [], cs = [];
+    (l.quiz || []).forEach((q, qi) => { if ((q.n || []).includes(i)) qs.push(l.id + '#' + qi); });
+    (l.flashcards || []).forEach((c, ci) => { if ((c.n || []).includes(i)) cs.push(l.id + '#' + ci); });
+    if (qs.some(k => S.wrong[k])) return 'weak';
+    const okQ = qs.filter(k => S.ok[k]).length, knownC = cs.filter(k => S.known[k]).length;
+    if (qs.length && okQ === qs.length) return 'ok';
+    if (!qs.length && cs.length && knownC === cs.length) return 'ok';
+    return okQ || knownC ? 'part' : 'new';
+  }
+  const STATE_LABEL = { ok: '✓ înțeleasă', weak: '⚠ de repetat', part: '◐ în curs', new: '○ neexersată' };
+  const lessonNotions = l => { const n = (l.theory || []).length; const done = (l.theory || []).filter((_, i) => notionState(l, i) === 'ok').length; return { total: n, done }; };
   const unitNotions = u => u.lessons.reduce((a, l) => { const x = lessonNotions(l); a.total += x.total; a.done += x.done; return a; }, { total: 0, done: 0 });
   // acord în număr: 0 noțiuni, 1 noțiune, 2–19 noțiuni, 20+ de noțiuni
   const pl = (n, one, many) => n === 1 ? `1 ${one}` : `${n} ${n >= 20 && (n % 100 === 0 || n % 100 >= 20) ? 'de ' : ''}${many}`;
@@ -88,7 +105,8 @@
   function coveragePanel(u) {
     const tot = unitNotions(u);
     const pct = tot.total ? Math.round(100 * tot.done / tot.total) : 0;
-    const left = u.lessons.map(l => ({ l, items: (l.theory || []).map((t, i) => ({ t, i })).filter(x => !S.notions[nKey(l, x.i)]) })).filter(x => x.items.length);
+    const left = u.lessons.map(l => ({ l, items: (l.theory || []).map((t, i) => ({ t, i })).map(x => Object.assign(x, { st: notionState(l, x.i) })).filter(x => x.st !== 'ok') })).filter(x => x.items.length);
+    const weakN = left.reduce((a, x) => a + x.items.filter(y => y.st === 'weak').length, 0);
     return h('div', { class: 'card', style: 'margin:14px 0' },
       h('b', {}, `Noțiuni înțelese: ${tot.done} din ${tot.total} (${pct}%)`),
       h('div', { class: 'bar' }, h('i', { style: `width:${pct}%` })),
@@ -98,7 +116,8 @@
           h('summary', { style: 'cursor:pointer;color:var(--brand);font-weight:600' }, `Ce mai ai de învățat (${pl(tot.total - tot.done, 'noțiune', 'noțiuni')})`),
           left.map(x => h('div', { style: 'margin:10px 0 0' },
             h('a', { href: `#/l/${x.l.id}/theory`, style: 'font-weight:600' }, `L${x.l.number}. ${x.l.title}`),
-            h('div', { class: 'muted' }, x.items.map(y => y.t.term).join(' · '))))));
+            h('div', { class: 'muted' }, x.items.map(y => (y.st === 'weak' ? '⚠ ' : '') + y.t.term).join(' · '))))),
+      weakN > 0 && h('p', { class: 'fb bad', style: 'margin:10px 0 0' }, `⚠ ${pl(weakN, 'noțiune', 'noțiuni')} de repetat (ai greșit întrebări despre ele).`));
   }
 
   function unitPage(id) {
@@ -192,15 +211,15 @@
     const draw = () => {
       list.replaceChildren(...th.map((t, i) => {
         const k = nKey(l, i);
-        const chk = h('button', { class: 'chk' + (S.notions[k] ? ' on' : ''), onclick: e => {
+        const st = notionState(l, i);
+        const chk = h('button', { class: 'chk' + (S.notions[k] ? ' on' : ''), title: 'Starea se actualizează singură din exerciții; poți marca și manual.', onclick: e => {
           e.stopPropagation();
           S.notions[k] = !S.notions[k]; if (!S.notions[k]) delete S.notions[k];
-          chk.classList.toggle('on', !!S.notions[k]); chk.textContent = S.notions[k] ? '✓ Am înțeles' : 'Am înțeles';
           const x = lessonNotions(l); if (x.done === x.total) S.studied[l.id] = true;
-          save(); upd();
-        } }, S.notions[k] ? '✓ Am înțeles' : 'Am înțeles');
+          save(); upd(); draw();
+        } }, S.notions[k] ? '✓ Marcată manual' : 'Marchează manual ca înțeleasă');
         const d = h('div', { class: 'def' + (t.important ? ' imp' : '') + (hide ? ' hidden' : '') },
-          h('div', { class: 'kind' }, (t.important ? '★ Repere · ' : '') + (KIND[t.kind] || t.kind || '') + (t.derived ? ' · din exercițiile manualului, nu din Repere' : '')),
+          h('div', { class: 'kind' }, h('span', { class: 'st st-' + st }, STATE_LABEL[st]), ' ' + (t.important ? '★ Repere · ' : '') + (KIND[t.kind] || t.kind || '') + (t.derived ? ' · din exercițiile manualului, nu din Repere' : '')),
           h('h3', {}, t.term),
           h('div', { class: 'body' },
             h('p', {}, t.text),
@@ -252,6 +271,20 @@
     runQuiz(body, shuffle(items), r => { if (S.best[l.id] == null || r.pct > S.best[l.id]) S.best[l.id] = r.pct; if (r.pct >= 70) S.studied[l.id] = true; save(); });
   }
 
+  // noțiunile care sunt acum „de repetat" după întrebările din această sesiune
+  function weakNotions(items) {
+    const seen = new Set(), out = [];
+    items.forEach(q => {
+      const l = findLesson(q.lessonId); if (!l) return;
+      (q.n || []).forEach(i => {
+        const id = l.id + '#' + i;
+        if (seen.has(id) || !(l.theory || [])[i] || notionState(l, i) !== 'weak') return;
+        seen.add(id); out.push({ l, term: l.theory[i].term });
+      });
+    });
+    return out;
+  }
+
   function runQuiz(body, items, onDone) {
     let i = 0, right = 0; const missed = [];
     const box = h('div', { class: 'card' });
@@ -261,7 +294,10 @@
       if (i >= items.length) {
         const pct = Math.round(100 * right / items.length);
         onDone && onDone({ pct, right, total: items.length });
+        const weak = weakNotions(items);
         box.replaceChildren(h('div', { class: 'big' }, pct + '%'), h('p', {}, `${right} din ${items.length} corecte.`),
+          weak.length > 0 && h('div', { class: 'fb bad' }, h('b', {}, 'Noțiuni de repetat: '), weak.map(w => h('a', { href: `#/l/${w.l.id}/theory`, style: 'margin-right:10px' }, w.term))),
+          weak.length === 0 && missed.length === 0 && h('div', { class: 'fb ok' }, '✓ Noțiunile verificate aici sunt înțelese.'),
           h('div', { class: 'row' },
             missed.length > 0 && h('button', { class: 'btn', onclick: () => { box.remove(); runQuiz(body, shuffle(missed), null); } }, `Reia greșelile (${missed.length})`),
             h('button', { class: 'btn ghost', onclick: () => { box.remove(); runQuiz(body, shuffle(items), onDone); } }, 'Reia tot')));
@@ -273,7 +309,7 @@
       let answered = false;
       const finish = (ok, correctText) => {
         if (answered) return; answered = true;
-        if (ok) { right++; if (S.wrong[q.key]) { delete S.wrong[q.key]; } } else { missed.push(q); S.wrong[q.key] = (S.wrong[q.key] || 0) + 1; }
+        if (ok) { right++; delete S.wrong[q.key]; S.ok[q.key] = true; } else { missed.push(q); delete S.ok[q.key]; S.wrong[q.key] = (S.wrong[q.key] || 0) + 1; }
         save();
         fb.className = 'fb ' + (ok ? 'ok' : 'bad');
         fb.replaceChildren(...[ok ? '✓ Corect!' : '✗ Nu chiar.' + (correctText ? ' Răspuns: ' + correctText : ''), q.why ? h('small', {}, q.why) : null].filter(Boolean));
