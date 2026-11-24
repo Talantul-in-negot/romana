@@ -90,3 +90,5 @@ input.txt,select{font:inherit;padding:9px 12px;border:1px solid var(--line);bord
 .st-ok{background:var(--okbg);color:var(--ok)}.st-weak{background:var(--badbg);color:var(--bad)}
 .st-part{background:var(--goldbg);color:var(--gold)}.st-new{background:var(--line);color:var(--mute)}
 @media print{.st{display:none!important}}
+
+.st-test,.st-decl{background:var(--goldbg);color:var(--gold)}
