@@ -32,6 +32,8 @@
   const findLesson = id => allLessons().find(l => l.id === id);
   const unitOf = id => D.units.find(u => u.unit.id === id);
   const render = (...nodes) => { app.replaceChildren(...nodes.flat().filter(n => n != null && n !== false)); window.scrollTo(0, 0); };
+  // acord în număr: 0 noțiuni, 1 noțiune, 2–19 noțiuni, 20+ de noțiuni
+  const pl = (n, one, many) => n === 1 ? `1 ${one}` : `${n} ${n >= 20 && (n % 100 === 0 || n % 100 >= 20) ? 'de ' : ''}${many}`;
   const KIND = { definition: 'definiție', rule: 'regulă', classification: 'clasificare', norm: 'normă', tip: 'de reținut', example: 'exemplu' };
   const hasPractice = l => (l.theory && l.theory.length) || (l.quiz && l.quiz.length);
 
@@ -74,7 +76,7 @@
           h('span', { class: 'unit-n' }, 'Unitatea ' + u.unit.number),
           h('h3', { style: 'margin:.5em 0 .2em' }, u.unit.title),
           h('div', { class: 'muted' }, u.unit.summary || ''),
-          h('div', { class: 'muted', style: 'margin-top:8px' }, `${u.lessons.length} lecții · ${pr.done}/${pr.total} învățate`),
+          h('div', { class: 'muted', style: 'margin-top:8px' }, `${pl(u.lessons.length, 'lecție', 'lecții')} · ${pr.done}/${pr.total} învățate`),
           h('div', { class: 'bar' }, h('i', { style: `width:${pr.pct}%` })));
       })));
   }
@@ -92,7 +94,7 @@
         h('h2', {}, s.name),
         s.items.map(l => h('a', { class: 'lesson-row', href: '#/l/' + l.id + '/theory' },
           h('span', { class: 'num' }, 'L' + l.number),
-          h('span', { class: 't' }, l.title, h('div', { class: 'muted' }, [l.pages, hasPractice(l) ? (l.theory || []).length + ' noțiuni' : '📖 doar lectură, fără teorie'].filter(Boolean).join(' · '))),
+          h('span', { class: 't' }, l.title, h('div', { class: 'muted' }, [l.pages, hasPractice(l) ? pl((l.theory || []).length, 'noțiune', 'noțiuni') : '📖 doar lectură, fără teorie'].filter(Boolean).join(' · '))),
           S.best[l.id] != null && h('span', { class: 'badge score' }, S.best[l.id] + '%'),
           S.studied[l.id] && h('span', { class: 'badge done' }, '✓ învățat'))))));
   }
@@ -154,7 +156,7 @@
     render(h('div', { class: 'noprint' },
       h('div', { class: 'crumbs' }, h('a', { href: '#/u/' + id }, '← Unitatea ' + u.unit.number)),
       h('h1', {}, 'Fișe printabile · ' + u.unit.title),
-      h('p', { class: 'muted' }, `${ls.length} fișe, câte una pe pagină (lecțiile fără noțiuni noi sunt omise).`),
+      h('p', { class: 'muted' }, `${pl(ls.length, 'fișă', 'fișe')}, câte una pe pagină (lecțiile fără noțiuni noi sunt omise).`),
       h('button', { class: 'btn', onclick: () => window.print() }, '🖨 Tipărește toate fișele')),
       ls.map(l => sheetNode(l, u)));
   }
@@ -317,11 +319,11 @@
     const all = [];
     D.units.forEach(u => u.lessons.forEach(l => (l.theory || []).forEach(t => all.push({ t, l, u }))));
     const list = h('div');
-    const q = h('input', { class: 'search', placeholder: `Caută printre ${all.length} noțiuni (termen sau definiție)…`, type: 'search' });
+    const q = h('input', { class: 'search', placeholder: `Caută printre ${pl(all.length, 'noțiune', 'noțiuni')} (termen sau definiție)…`, type: 'search' });
     const draw = () => {
       const s = norm(q.value);
       const res = all.filter(x => !s || norm(x.t.term).includes(s) || norm(x.t.text).includes(s)).sort((a, b) => a.t.term.localeCompare(b.t.term, 'ro'));
-      list.replaceChildren(h('p', { class: 'muted' }, res.length + ' rezultate'), ...res.slice(0, 120).map(x =>
+      list.replaceChildren(h('p', { class: 'muted' }, pl(res.length, 'rezultat', 'rezultate')), ...res.slice(0, 120).map(x =>
         h('div', { class: 'def' + (x.t.important ? ' imp' : '') },
           h('div', { class: 'kind' }, `U${x.u.unit.number} · L${x.l.number} · ${x.l.title}`),
           h('h3', {}, x.t.term), h('p', {}, x.t.text),
