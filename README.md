@@ -1,4 +1,4 @@
-# Română clasa a VI-a – teorie interactivă
+# Limba română – clasa a VI-a
 
 Aplicație statică (HTML/JS, fără build) pentru învățarea teoriei din manualul „Limba și literatura română, clasa a VI-a” (Art Klett):
 5 unități, 78 lecții, definiții, flashcarduri, exerciții, glosar, recapitulare și fișe printabile.

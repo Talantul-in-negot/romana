@@ -26,6 +26,18 @@
     for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
     return e;
   }
+  // text marcat: [[cuvântul despre care vorbim]] = subliniat, {{desinență / grup de litere}} = colorat. Pot fi imbricate: [[căuta{{se}}m]]
+  function rich(str) {
+    const root = document.createDocumentFragment();
+    const stack = [root];
+    String(str).split(/(\[\[|\]\]|\{\{|\}\})/).forEach(part => {
+      if (part === '[[' || part === '{{') { const e = h('span', { class: part === '[[' ? 'hw' : 'hm' }); stack[stack.length - 1].appendChild(e); stack.push(e); }
+      else if (part === ']]' || part === '}}') { if (stack.length > 1) stack.pop(); }
+      else if (part) stack[stack.length - 1].appendChild(document.createTextNode(part));
+    });
+    return root;
+  }
+  const exList = (t, label) => (t.examplesM || t.examples || []).flatMap((e, i) => [i ? ' · ' : label, rich(e)]);
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
   const allLessons = () => D.units.flatMap(u => u.lessons.map(l => Object.assign(l, { unitId: u.unit.id })));
@@ -93,7 +105,7 @@
     const total = allLessons().filter(hasPractice).length;
     const done = Object.keys(S.studied).filter(id => S.studied[id]).length;
     render(
-      h('h1', {}, 'Teoria de română – clasa a VI-a'),
+      h('h1', {}, 'Limba română – clasa a VI-a'),
       h('p', { class: 'muted' }, `Învață definițiile, apoi exersează. ${done} din ${total} lecții marcate ca învățate.`),
       h('div', { class: 'row' },
         h('a', { class: 'btn', href: '#/review' }, '🎯 Recapitulare mixtă'),
@@ -186,12 +198,12 @@
       l.source && h('div', { class: 'sheet-src' }, 'Text-suport: ' + l.source),
       th.length ? th.map(t => h('div', { class: 'sheet-def' + (t.important ? ' imp' : '') },
         h('b', {}, (t.important ? '★ ' : '') + t.term + (t.derived ? ' · din exerciții' : '') + '. '),
-        h('span', {}, t.text),
-        (t.examples || []).length > 0 && h('div', { class: 'sheet-ex' }, 'Ex.: ' + t.examples.join(' · '))))
+        h('span', {}, rich(t.textM || t.text)),
+        (t.examples || []).length > 0 && h('div', { class: 'sheet-ex' }, exList(t, 'Ex.: '))))
         : h('p', { class: 'muted' }, 'Lecție de lectură, fără noțiuni noi de reținut.'),
       cards.length > 0 && h('div', { class: 'sheet-test' },
         h('h3', {}, 'Autotest (acoperă coloana din dreapta)'),
-        h('table', {}, cards.map(c => h('tr', {}, h('td', {}, c.front), h('td', {}, c.back))))),
+        h('table', {}, cards.map(c => h('tr', {}, h('td', {}, rich(c.frontM || c.front)), h('td', {}, rich(c.backM || c.back)))))),
       h('div', { class: 'sheet-foot' }, 'Română cl. a VI-a · după manualul Art Klett (MEN 5022/2023)'));
   }
   function sheetTab(l, body) {
@@ -228,8 +240,8 @@
         h('div', { class: 'kind' }, h('span', { class: 'st st-' + st }, STATE_LABEL[st]), ' ' + (t.important ? '★ Repere · ' : '') + (KIND[t.kind] || t.kind || '') + (t.derived ? ' · din exercițiile manualului, nu din Repere' : '')),
         h('h3', {}, t.term),
         h('div', { class: 'body' },
-          h('p', {}, t.text),
-          (t.examples || []).length > 0 && h('div', { class: 'ex' }, 'Exemple: ' + t.examples.join(' · '))),
+          h('p', {}, rich(t.textM || t.text)),
+          (t.examples || []).length > 0 && h('div', { class: 'ex' }, exList(t, 'Exemple: '))),
         chk);
       d.onclick = () => { if (hide) d.classList.toggle('hidden'); };
       return d;
@@ -248,6 +260,7 @@
     const mark = h('button', { class: 'btn', onclick: () => { S.studied[l.id] = !S.studied[l.id]; save(); mark.textContent = S.studied[l.id] ? '✓ Marcată ca învățată' : 'Marchează ca învățată'; } },
       S.studied[l.id] ? '✓ Marcată ca învățată' : 'Marchează ca învățată');
     upd();
+    if (th.some(t => t.textM || t.examplesM)) body.append(h('p', { class: 'legend' }, 'Legendă: ', rich('[[cuvântul despre care vorbim]]'), ' · ', rich('{{desinența sau grupul de litere}}'), ' care arată timpul, modul, cazul etc.'));
     body.append(h('div', { class: 'row' }, tog, mark, counter), list,
       h('p', { class: 'muted' }, 'Sfat: acoperă definițiile și încearcă să le spui din memorie; apasă pe o carte pentru a o descoperi.'));
     draw();
@@ -256,7 +269,7 @@
   function cardsTab(l, body) {
     const cards = l.flashcards && l.flashcards.length ? l.flashcards : (l.theory || []).map(t => ({ front: t.term, back: t.text }));
     if (!cards.length) { body.append(h('p', { class: 'muted' }, 'Nu există flashcarduri pentru această lecție.')); return; }
-    cardsPlayer(cards.map((c, i) => ({ key: l.id + '#' + i, front: c.front, back: c.back })), body);
+    cardsPlayer(cards.map((c, i) => ({ key: l.id + '#' + i, front: c.frontM || c.front, back: c.backM || c.back })), body);
   }
 
   // player de flashcarduri pe o listă oarecare: [{key, front, back}]
@@ -273,7 +286,7 @@
         return;
       }
       const i = order[pos], c = cards[i];
-      const f = h('div', { class: 'flash', onclick: () => f.classList.toggle('flip') }, h('div', { class: 'in' }, h('div', { class: 'f' }, c.front), h('div', { class: 'b' }, c.back)));
+      const f = h('div', { class: 'flash', onclick: () => f.classList.toggle('flip') }, h('div', { class: 'in' }, h('div', { class: 'f' }, rich(c.front)), h('div', { class: 'b' }, rich(c.back))));
       area.replaceChildren(
         h('div', { class: 'prog' }, h('i', { style: `width:${100 * pos / order.length}%` })),
         h('div', { class: 'muted' }, `Card ${pos + 1} din ${order.length} · apasă pe card pentru a vedea răspunsul`), f,
@@ -333,14 +346,14 @@
         if (ok) { right++; delete S.wrong[q.key]; S.ok[q.key] = true; } else { missed.push(q); delete S.ok[q.key]; S.wrong[q.key] = (S.wrong[q.key] || 0) + 1; }
         save();
         fb.className = 'fb ' + (ok ? 'ok' : 'bad');
-        fb.replaceChildren(...[ok ? '✓ Corect!' : '✗ Nu chiar.' + (correctText ? ' Răspuns: ' + correctText : ''), q.why ? h('small', {}, q.why) : null].filter(Boolean));
+        fb.replaceChildren(...[ok ? '✓ Corect!' : '✗ Nu chiar.' + (correctText ? ' Răspuns: ' + correctText : ''), q.why ? h('small', {}, rich(q.whyM || q.why)) : null].filter(Boolean));
         nextBtn.style.display = '';
       };
       ({ mcq, tf, fill, match, classify }[q.type] || mcq)(q, holder, finish);
       box.replaceChildren(
         h('div', { class: 'prog' }, h('i', { style: `width:${100 * i / items.length}%` })),
         h('div', { class: 'muted' }, `Întrebarea ${i + 1} din ${items.length}`),
-        h('div', { class: 'q' }, q.q), holder, fb, h('div', { class: 'row' }, nextBtn));
+        h('div', { class: 'q' }, rich(q.qM || q.q)), holder, fb, h('div', { class: 'row' }, nextBtn));
     }
     step();
   }
@@ -351,7 +364,7 @@
       btns.forEach((b, n) => { b.disabled = true; if (order[n] === q.answer) b.classList.add('ok'); });
       if (k !== q.answer) btns[order.indexOf(k)].classList.add('bad');
       finish(k === q.answer, q.options[q.answer]);
-    } }, q.options[k]));
+    } }, rich((q.optionsM || q.options)[k])));
     holder.append(...btns);
   }
   function tf(q, holder, finish) {
@@ -381,7 +394,7 @@
   function match(q, holder, finish) {
     const rights = shuffle(q.pairs.map(p => p[1]));
     const sels = q.pairs.map(p => h('select', {}, h('option', { value: '' }, '— alege —'), rights.map(r => h('option', { value: r }, r))));
-    q.pairs.forEach((p, k) => holder.append(h('div', { class: 'pairrow' }, h('b', {}, p[0]), sels[k])));
+    q.pairs.forEach((p, k) => holder.append(h('div', { class: 'pairrow' }, h('b', {}, rich(q.leftM ? q.leftM[k] : p[0])), sels[k])));
     const btn = h('button', { class: 'btn', onclick: () => {
       if (sels.some(s => !s.value)) return;
       let ok = true;
@@ -393,7 +406,7 @@
   }
   function classify(q, holder, finish) {
     const sels = q.items.map(it => h('select', {}, h('option', { value: '' }, '— alege —'), q.categories.map((c, k) => h('option', { value: k }, c))));
-    q.items.forEach((it, k) => holder.append(h('div', { class: 'pairrow' }, h('b', {}, it.t), sels[k])));
+    q.items.forEach((it, k) => holder.append(h('div', { class: 'pairrow' }, h('b', {}, rich(q.itemsM ? q.itemsM[k] : it.t)), sels[k])));
     const btn = h('button', { class: 'btn', onclick: () => {
       if (sels.some(s => s.value === '')) return;
       let ok = true;
@@ -458,7 +471,7 @@
         h('button', { class: 'btn', disabled: !all.length, onclick: () => go(shuffle(all).slice(0, 15)) }, '🎲 15 întrebări'),
         h('button', { class: 'btn ghost', disabled: !all.length, onclick: () => go(all) }, `📝 Toate întrebările (${all.length})`),
         h('button', { class: 'btn ghost', disabled: !unp.length, onclick: () => go(unp) }, `🎯 Ce n-am dovedit încă (${unp.length})`),
-        h('button', { class: 'btn ghost', disabled: !c.cards, onclick: () => { practice.replaceChildren(); cardsPlayer(t.ls.flatMap(l => (l.flashcards || []).map((f, i) => ({ key: l.id + '#' + i, front: f.front, back: f.back }))), practice); } }, `🃏 Flashcarduri (${c.cards})`),
+        h('button', { class: 'btn ghost', disabled: !c.cards, onclick: () => { practice.replaceChildren(); cardsPlayer(t.ls.flatMap(l => (l.flashcards || []).map((f, i) => ({ key: l.id + '#' + i, front: f.frontM || f.front, back: f.backM || f.back }))), practice); } }, `🃏 Flashcarduri (${c.cards})`),
         h('a', { class: 'btn ghost', href: '#/print-topic/' + t.id }, '🖨 Fișe'));
     };
     const defs = t.ls.filter(l => (l.theory || []).length).map(l => {
@@ -526,7 +539,7 @@
       list.replaceChildren(...[banner, h('p', { class: 'muted' }, pl(res.length, 'rezultat', 'rezultate') + (res.length > 120 ? ' · se afișează primele 120' : ''))].filter(Boolean), ...res.slice(0, 120).map(x =>
         h('div', { class: 'def' + (x.t.important ? ' imp' : '') },
           h('div', { class: 'kind' }, `U${x.u.unit.number} · L${x.l.number} · ${x.l.title}` + (themesOf(x.l).length ? ' · temă: ' + themesOf(x.l).map(t => t.title).join(', ') : '')),
-          h('h3', {}, x.t.term), h('p', {}, x.t.text),
+          h('h3', {}, x.t.term), h('p', {}, rich(x.t.textM || x.t.text)),
           h('a', { href: `#/l/${x.l.id}/theory` }, 'Deschide lecția →'))));
     };
     q.oninput = draw;

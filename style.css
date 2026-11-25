@@ -97,3 +97,10 @@ input.txt,select{font:inherit;padding:9px 12px;border:1px solid var(--line);bord
 .topic-lesson{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:10px 0}
 .topic-lesson summary{cursor:pointer;font-weight:600}
 @media print{.topic-lesson{border:none}}
+
+/* cuvântul despre care vorbim și marca gramaticală */
+.hw{text-decoration:underline;text-decoration-color:var(--brand);text-decoration-thickness:2px;text-underline-offset:3px}
+.hm{color:#c2255c;font-weight:800;background:rgba(230,73,128,.14);border-radius:3px;font-style:normal}
+[data-theme=dark] .hm{color:#faa2c1}
+.legend{font-size:13px;color:var(--mute);margin:6px 0}
+@media print{.hm{color:#000;background:#ddd;-webkit-print-color-adjust:exact;print-color-adjust:exact}.hw{text-decoration-color:#000}}
