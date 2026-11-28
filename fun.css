@@ -1,0 +1,118 @@
+/* ===== decor și stil jucăuș ===== */
+:root{--sky1:#bde8ff;--sky2:#e9ffd9;--sun:#ffe066}
+:root[data-scene=padure]{--sky1:#b5e8ff;--sky2:#e3fbd3;--brand:#237a35;--brand2:#e3f6e5;--bg:#f4fbf1;--ground:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 160' preserveAspectRatio='none'%3E%3Cpath fill='%238fd16f' d='M0 90Q150 20 330 75T700 60T1000 85T1200 55V160H0Z'/%3E%3Cpath fill='%2357b04a' d='M0 125Q220 75 470 118T900 108T1200 120V160H0Z'/%3E%3C/svg%3E")}
+:root[data-scene=ocean]{--sky1:#c5f1ff;--sky2:#4fb6e3;--sun:#fff3a8;--brand:#1466ad;--brand2:#e0f1ff;--bg:#f0f9ff;--ground:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 160' preserveAspectRatio='none'%3E%3Cpath fill='%23f6dc9c' d='M0 95Q200 55 420 92T850 80T1200 90V160H0Z'/%3E%3Cpath fill='%23e8c477' d='M0 135Q250 105 520 132T1200 122V160H0Z'/%3E%3C/svg%3E")}
+:root[data-scene=spatiu]{--sky1:#171447;--sky2:#5b3aa8;--sun:#e9ecef;--brand:#5f3dc4;--brand2:#ede8ff;--bg:#f6f3ff;--ground:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 160' preserveAspectRatio='none'%3E%3Cpath fill='%238c86b8' d='M0 110Q600 20 1200 110V160H0Z'/%3E%3Cg fill='%236f699c'%3E%3Cellipse cx='260' cy='118' rx='50' ry='12'/%3E%3Cellipse cx='650' cy='95' rx='70' ry='14'/%3E%3Cellipse cx='960' cy='128' rx='40' ry='10'/%3E%3C/g%3E%3C/svg%3E")}
+:root[data-scene=savana]{--sky1:#ffd8a8;--sky2:#fff3bf;--sun:#ff922b;--brand:#a94b00;--brand2:#fff0dc;--bg:#fffaf0;--ground:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 160' preserveAspectRatio='none'%3E%3Cpath fill='%23f2c45a' d='M0 85Q200 50 450 85T900 70T1200 90V160H0Z'/%3E%3Cpath fill='%23d99a36' d='M0 125Q300 95 600 122T1200 112V160H0Z'/%3E%3C/svg%3E")}
+:root[data-scene=ferma]{--sky1:#a5d8ff;--sky2:#fff0f6;--brand:#7048e8;--brand2:#efeaff;--bg:#fbf8ff;--ground:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 160' preserveAspectRatio='none'%3E%3Cpath fill='%23a9d86e' d='M0 70Q300 25 600 78T1200 62V160H0Z'/%3E%3Cpath fill='%237cbd4b' d='M0 120Q350 80 700 120T1200 108V160H0Z'/%3E%3C/svg%3E")}
+:root[data-scene=linistit]{--sky1:#f6f7fb;--sky2:#f6f7fb;--ground:none}
+/* tema întunecată: aceleași decoruri, culori potrivite pentru noapte */
+:root[data-theme=dark][data-scene]{--bg:#12151c;--brand:#8ea2ff;--brand2:#232b4a}
+:root[data-theme=dark][data-scene=padure]{--brand:#8ce99a;--brand2:#1d3326}
+:root[data-theme=dark][data-scene=ocean]{--brand:#74c0fc;--brand2:#17304a}
+:root[data-theme=dark][data-scene=spatiu]{--brand:#b197fc;--brand2:#2b2350}
+:root[data-theme=dark][data-scene=savana]{--brand:#ffc078;--brand2:#3d2a14}
+:root[data-theme=dark][data-scene=ferma]{--brand:#b197fc;--brand2:#2b2350}
+:root[data-theme=dark] .btn:not(.ghost){color:#12151c}
+
+html{background:var(--bg)}
+body{background:transparent;font-family:"Nunito","Trebuchet MS","Segoe UI",system-ui,sans-serif}
+
+.scene{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:linear-gradient(180deg,var(--sky1),var(--sky2))}
+:root[data-theme=dark] .scene{filter:brightness(.38) saturate(.85)}
+.scene .sun{position:absolute;top:84px;right:7vw;width:86px;height:86px;border-radius:50%;background:var(--sun);box-shadow:0 0 0 14px rgba(255,255,255,.28),0 0 60px 20px var(--sun)}
+.scene .ground{position:absolute;left:0;right:0;bottom:0;height:150px;background:var(--ground) bottom/100% 100% no-repeat}
+:root[data-scene=spatiu] .scene::before{content:"";position:absolute;inset:0;background-image:radial-gradient(2px 2px at 20px 30px,#fff 50%,transparent 51%),radial-gradient(1.5px 1.5px at 90px 110px,#fff 50%,transparent 51%),radial-gradient(1px 1px at 150px 60px,#fff 50%,transparent 51%),radial-gradient(2px 2px at 60px 170px,#ffe066 50%,transparent 51%);background-size:190px 200px;animation:twinkle 4s ease-in-out infinite alternate}
+:root[data-scene=linistit] .sun{display:none}
+.scene .animal{position:absolute;font-size:clamp(34px,4.2vw,66px);line-height:1;animation:bob 4.5s ease-in-out infinite;filter:drop-shadow(0 6px 4px rgba(0,0,0,.18))}
+.scene .decor{position:absolute;font-size:clamp(28px,3.4vw,52px);line-height:1}
+.scene .flyer{position:absolute;left:0;font-size:30px;animation:fly linear infinite}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-16px) rotate(4deg)}}
+@keyframes fly{0%{transform:translate(-60px,0)}25%{transform:translate(26vw,-26px)}50%{transform:translate(52vw,14px)}75%{transform:translate(78vw,-18px)}100%{transform:translate(calc(100vw + 60px),0)}}
+@keyframes twinkle{from{opacity:.45}to{opacity:1}}
+
+/* foaia de lucru rămâne liniștită, ca textul să se citească ușor */
+main{background:color-mix(in srgb,var(--bg) 88%,transparent);border-radius:26px;margin-top:16px;margin-bottom:18px;box-shadow:0 10px 30px rgba(20,30,60,.14)}
+@media(max-width:1020px){main{margin-left:8px;margin-right:8px}}
+.foot{background:color-mix(in srgb,var(--bg) 90%,transparent);color:var(--ink);padding:14px 90px 150px 16px}
+.top{flex-wrap:wrap;border-bottom:4px solid var(--brand);background:var(--card)}
+.top nav a{padding:3px 8px;border-radius:99px}
+.top nav a:hover{background:var(--brand2)}
+#scene-pick{min-width:0;padding:5px 8px;border-radius:99px;font-size:14px;font-weight:700;border:2px solid var(--brand);cursor:pointer}
+#theme{border-radius:50%}
+h1,h2{color:var(--brand)}
+
+.card{border-width:2px;border-radius:20px;box-shadow:0 4px 0 var(--line)}
+a.card{transition:transform .18s cubic-bezier(.3,1.7,.5,1),box-shadow .18s}
+a.card:hover{transform:translateY(-5px) rotate(-.6deg);box-shadow:0 10px 20px rgba(20,30,60,.18)}
+.lesson-row{border-width:2px;border-radius:18px;transition:transform .15s}
+.lesson-row:hover{transform:translateX(6px)}
+.lesson-row .num{background:var(--brand2);border-radius:99px;padding:4px 10px;text-align:center}
+.btn{border-radius:99px;box-shadow:0 4px 0 rgba(0,0,0,.2);transition:transform .08s,box-shadow .08s}
+.btn.ghost{background:var(--card);border-width:2px}
+.btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 0 rgba(0,0,0,.2)}
+.btn:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.2)}
+.opt{border-width:2px;border-radius:16px;transition:transform .12s}
+.opt:hover:not(:disabled){transform:scale(1.012);background:var(--brand2)}
+.opt.ok{background:var(--okbg);animation:pop .4s}
+.opt.bad{background:var(--badbg)}
+.tabs{flex-wrap:wrap}
+.tabs a{border-radius:99px;border:2px solid transparent}
+.tabs a.on{background:var(--brand2);border:2px solid var(--brand);margin-bottom:6px}
+.tabs a:not(.on){background:var(--card);margin-bottom:6px}
+.def{border-radius:18px}
+.flash .f,.flash .b{border:3px solid var(--brand);border-radius:26px}
+.bar{height:12px}
+.bar i{background:linear-gradient(90deg,#ffd43b,#51cf66,#339af0)}
+.prog{height:10px}.prog i{background:linear-gradient(90deg,#ff922b,#ffd43b,#51cf66);transition:width .3s}
+.fb{border-radius:16px;font-weight:700;animation:pop .35s}
+.fb small{font-weight:400}
+.big{animation:pop .5s}
+@keyframes pop{0%{transform:scale(.92)}60%{transform:scale(1.03)}100%{transform:scale(1)}}
+
+/* fiecare unitate are culoarea și animalul ei */
+a.card[href^="#/u/"]{position:relative;border-top-width:10px;padding-right:62px;overflow:hidden}
+a.card[href^="#/u/"]::after{position:absolute;right:10px;top:10px;font-size:40px}
+a.card[href="#/u/u1"]{border-top-color:#ff6b6b}a.card[href="#/u/u1"]::after{content:"🐻"}
+a.card[href="#/u/u2"]{border-top-color:#ffa94d}a.card[href="#/u/u2"]::after{content:"🦊"}
+a.card[href="#/u/u3"]{border-top-color:#51cf66}a.card[href="#/u/u3"]::after{content:"🦉"}
+a.card[href="#/u/u4"]{border-top-color:#339af0}a.card[href="#/u/u4"]::after{content:"🐢"}
+a.card[href="#/u/u5"]{border-top-color:#cc5de8}a.card[href="#/u/u5"]::after{content:"🐬"}
+
+/* mascota */
+.buddy{position:fixed;right:14px;bottom:14px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
+.mascot{pointer-events:auto;width:64px;height:64px;border-radius:50%;border:3px solid var(--brand);background:var(--card);font-size:36px;line-height:1;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,.25);padding:0}
+.mascot.hop{animation:hop .7s}
+.mascot.shake{animation:shake .5s}
+.bubble{max-width:min(250px,70vw);background:var(--card);color:var(--ink);border:3px solid var(--brand);border-radius:18px 18px 4px 18px;padding:9px 14px;font-weight:700;font-size:15px;opacity:0;transform:translateY(8px) scale(.9);transition:.2s;visibility:hidden}
+.bubble.show{opacity:1;transform:none;visibility:visible}
+@keyframes hop{0%,100%{transform:translateY(0)}30%{transform:translateY(-18px) rotate(-10deg)}55%{transform:translateY(0)}75%{transform:translateY(-8px) rotate(8deg)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.confetti{position:fixed;z-index:30;pointer-events:none;width:10px;height:14px;border-radius:3px;font-size:26px;line-height:1}
+
+@media(max-width:600px){
+  .scene .animal{opacity:.55;font-size:30px}
+  .scene .sun{width:56px;height:56px;top:110px}
+  .mascot{width:52px;height:52px;font-size:28px}
+}
+@media(prefers-reduced-motion:reduce){
+  .scene *,.scene::before,.mascot,.fb,.big,.opt.ok{animation:none!important}
+  .scene .flyer{display:none}
+  a.card:hover,.lesson-row:hover,.btn:hover:not(:disabled),.opt:hover:not(:disabled){transform:none}
+}
+@media print{
+  .scene,.buddy,.confetti,#scene-pick{display:none!important}
+  html,body{background:#fff}
+  main{background:#fff;box-shadow:none;margin:0;border-radius:0}
+  h1,h2{color:#000}
+  .card{box-shadow:none}
+}
+/* pe telefon: titlu + selector pe primul rând, meniul pe al doilea */
+@media(max-width:600px){
+  .top{gap:6px;padding:7px 8px}
+  .brand{font-size:13px}
+  .top nav{order:3;width:100%;justify-content:space-between;gap:0;font-size:13px}
+  .top nav a{padding:3px 5px}
+  #scene-pick{font-size:12px;padding:3px 4px;max-width:118px}
+  #theme{width:30px;height:30px}
+}

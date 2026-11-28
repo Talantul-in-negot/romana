@@ -232,7 +232,7 @@
       const st = notionState(l, i);
       const chk = h('button', { class: 'chk' + (S.notions[k] ? ' on' : ''), title: 'O noțiune e „înțeleasă" când o declari tu ȘI ai trecut testele ei.', onclick: e => {
         e.stopPropagation();
-        S.notions[k] = !S.notions[k]; if (!S.notions[k]) delete S.notions[k];
+        S.notions[k] = !S.notions[k]; if (!S.notions[k]) delete S.notions[k]; else window.FUN && FUN.declared();
         const x = lessonNotions(l); if (x.done === x.total) S.studied[l.id] = true;
         save(); onChange && onChange(); redraw();
       } }, S.notions[k] ? '✓ Declarată înțeleasă' : 'Declar că am înțeles');
@@ -328,6 +328,7 @@
       if (i >= items.length) {
         const pct = Math.round(100 * right / items.length);
         onDone && onDone({ pct, right, total: items.length });
+        window.FUN && FUN.result(pct);
         const weak = weakNotions(items);
         box.replaceChildren(h('div', { class: 'big' }, pct + '%'), h('p', {}, `${right} din ${items.length} corecte.`),
           weak.length > 0 && h('div', { class: 'fb bad' }, h('b', {}, 'Noțiuni de repetat: '), weak.map(w => h('a', { href: `#/l/${w.l.id}/theory`, style: 'margin-right:10px' }, w.term))),
@@ -345,6 +346,7 @@
         if (answered) return; answered = true;
         if (ok) { right++; delete S.wrong[q.key]; S.ok[q.key] = true; } else { missed.push(q); delete S.ok[q.key]; S.wrong[q.key] = (S.wrong[q.key] || 0) + 1; }
         save();
+        window.FUN && FUN.answer(ok);
         fb.className = 'fb ' + (ok ? 'ok' : 'bad');
         fb.replaceChildren(...[ok ? '✓ Corect!' : '✗ Nu chiar.' + (correctText ? ' Răspuns: ' + correctText : ''), q.why ? h('small', {}, rich(q.whyM || q.why)) : null].filter(Boolean));
         nextBtn.style.display = '';
